@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_env: str = "development"
 
-    database_url: str
+    DATABASE_URL: str
 
     azure_search_endpoint: str | None = None
     azure_search_api_key: SecretStr | None = None
@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_file=".env",
+        env_file_encoding="utf-8",
         extra="ignore"
     )
 
