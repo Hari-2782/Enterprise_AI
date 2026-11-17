@@ -1,7 +1,10 @@
-from functools import lru_cache
-from typing import Sequence
+from __future__ import annotations
 
-from app.schemas.chunking import DocumentChunkData
+from functools import lru_cache
+from typing import TYPE_CHECKING, Sequence
+
+if TYPE_CHECKING:
+    from app.schemas.chunking import DocumentChunkData
 
 
 MODEL_NAME = "intfloat/multilingual-e5-small"

@@ -7,11 +7,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.api.v1.routes import documets
 from app.core.config import settings
 from app.database.base import Base
 from app.database.connection import get_db
 from app.database.models import Document, DocumentChunk, DocumentVersion
+from app.database.models import IngestionJob
 from app.main import app
 from app.schemas.chunking import ChunkSource, DocumentChunkData
 from app.schemas.extraction import ExtractionResult
@@ -31,16 +31,6 @@ def make_database():
 def test_upload_is_idempotent_and_status_is_queryable(tmp_path, monkeypatch):
     engine, session_factory = make_database()
     monkeypatch.setattr(settings, "upload_dir", str(tmp_path / "uploads"))
-    task_calls = []
-
-    def fake_process(version_id, upload_path, request_id):
-        task_calls.append((version_id, upload_path, request_id))
-        with session_factory() as session:
-            version = session.get(DocumentVersion, version_id)
-            version.status = "processing"
-            session.commit()
-
-    monkeypatch.setattr(documets, "process_ingestion_version", fake_process)
 
     def override_get_db():
         session = session_factory()
@@ -70,7 +60,12 @@ def test_upload_is_idempotent_and_status_is_queryable(tmp_path, monkeypatch):
             assert first.status_code == 202, first.text
             first_data = first.json()
             assert first_data["duplicate"] is False
-            assert len(task_calls) == 1
+            assert first_data["status"] == "queued"
+            with session_factory() as session:
+                jobs = session.query(IngestionJob).all()
+                assert len(jobs) == 1
+                assert jobs[0].status == "pending"
+                assert jobs[0].source_path.endswith(".txt")
 
             duplicate = client.post(
                 "/api/v1/documents",
@@ -90,13 +85,14 @@ def test_upload_is_idempotent_and_status_is_queryable(tmp_path, monkeypatch):
             assert duplicate.status_code == 202, duplicate.text
             assert duplicate.json()["duplicate"] is True
             assert duplicate.json()["version_id"] == first_data["version_id"]
-            assert len(task_calls) == 1
+            with session_factory() as session:
+                assert session.query(IngestionJob).count() == 1
 
             status_response = client.get(
                 f"/api/v1/documents/{first_data['version_id']}"
             )
             assert status_response.status_code == 200
-            assert status_response.json()["status"] == "processing"
+            assert status_response.json()["status"] == "queued"
 
             key_reuse = client.post(
                 "/api/v1/documents",
@@ -122,6 +118,12 @@ def test_upload_is_idempotent_and_status_is_queryable(tmp_path, monkeypatch):
                 )
                 retry_version.status = "indexing_failed"
                 retry_version.error_message = "temporary Azure error"
+                retry_job = session.query(IngestionJob).filter_by(
+                    version_id=retry_version.id
+                ).one()
+                retry_job.status = "dead_letter"
+                retry_job.attempt_count = retry_job.max_attempts
+                retry_job.last_error = "temporary Azure error"
                 session.commit()
 
             retried = client.post(
@@ -141,7 +143,11 @@ def test_upload_is_idempotent_and_status_is_queryable(tmp_path, monkeypatch):
             )
             assert retried.status_code == 202
             assert retried.json()["duplicate"] is True
-            assert len(task_calls) == 2
+            with session_factory() as session:
+                retry_job = session.query(IngestionJob).one()
+                assert retry_job.status == "pending"
+                assert retry_job.attempt_count == 0
+                assert retry_job.last_error is None
     finally:
         app.dependency_overrides.pop(get_db, None)
         Base.metadata.drop_all(engine)

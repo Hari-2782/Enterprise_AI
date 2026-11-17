@@ -1,0 +1,19 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt /tmp/requirements.txt
+COPY requirements-tokenizer-linux.txt /tmp/requirements-tokenizer-linux.txt
+
+RUN grep -Ev '^(torch|transformers|sentencepiece)([<=>]|$)' /tmp/requirements.txt \
+        > /tmp/requirements-backend.txt \
+    && python -m pip install --no-cache-dir -r /tmp/requirements-backend.txt \
+    && python -m pip install --no-cache-dir -r /tmp/requirements-tokenizer-linux.txt \
+    && python -m pip install --no-cache-dir \
+        --index-url https://download.pytorch.org/whl/cpu \
+        'torch>=2.2,<3'
+
+ENV HF_HOME=/root/.cache/huggingface
+ENV PYTHONUNBUFFERED=1
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

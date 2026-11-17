@@ -123,3 +123,9 @@ class DocumentVersion(Base):
         back_populates="version",
         cascade="all, delete-orphan",
     )
+
+    ingestion_job: Mapped["IngestionJob | None"] = relationship(
+        back_populates="version",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )

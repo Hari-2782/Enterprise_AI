@@ -6,7 +6,6 @@ from uuid import UUID
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -22,13 +21,12 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.database.connection import get_db
-from app.database.models import Document, DocumentVersion
+from app.database.models import Document, DocumentVersion, IngestionJob
 from app.schemas.ingestion import IngestionAccepted, IngestionStatus
 from app.services.ingestion.file_validation import (
     SUPPORTED_EXTENSIONS,
     detect_file_type,
 )
-from app.services.ingestion.pipeline_service import process_ingestion_version
 
 
 logger = logging.getLogger("enterprise-ai.ingestion")
@@ -41,6 +39,7 @@ RETRYABLE_STATUSES = {
     "partial_extraction",
     "no_usable_chunks",
     "indexing_failed",
+    "worker_failed",
 }
 
 
@@ -95,20 +94,6 @@ async def _stage_upload(upload: UploadFile) -> tuple[Path, str, str]:
         await upload.close()
 
 
-def _schedule_processing(
-    background_tasks: BackgroundTasks,
-    version_id: UUID,
-    upload_path: Path,
-    request_id: str,
-) -> None:
-    background_tasks.add_task(
-        process_ingestion_version,
-        version_id=version_id,
-        upload_path=str(upload_path),
-        request_id=request_id,
-    )
-
-
 @router.post(
     "",
     response_model=IngestionAccepted,
@@ -116,7 +101,6 @@ def _schedule_processing(
 )
 async def upload_document(
     request: Request,
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: str = Form(..., min_length=1, max_length=255),
     department: str = Form(..., min_length=1, max_length=100),
@@ -210,12 +194,43 @@ async def upload_document(
             )
             db.add(version)
             db.flush()
+            job = IngestionJob(
+                version_id=version.id,
+                source_path=str(upload_path),
+                request_id=request.state.request_id,
+                status="pending",
+            )
+            db.add(job)
         else:
             version = existing_version
             if version.status in RETRYABLE_STATUSES:
                 version.status = "queued"
                 version.error_message = None
                 requeued_existing = True
+            job = db.scalar(
+                select(IngestionJob)
+                .where(IngestionJob.version_id == version.id)
+                .with_for_update()
+            )
+            if job is None:
+                job = IngestionJob(
+                    version_id=version.id,
+                    source_path=str(upload_path),
+                    request_id=request.state.request_id,
+                    status="pending",
+                )
+                db.add(job)
+                requeued_existing = True
+            elif requeued_existing or job.status == "dead_letter":
+                job.source_path = str(upload_path)
+                job.request_id = request.state.request_id
+                job.status = "pending"
+                job.attempt_count = 0
+                job.available_at = func.now()
+                job.locked_at = None
+                job.locked_by = None
+                job.lease_token = None
+                job.last_error = None
 
         db.commit()
         db.refresh(version)
@@ -256,18 +271,6 @@ async def upload_document(
         raise HTTPException(
             status_code=500,
             detail="Unable to persist document upload",
-        )
-
-    should_schedule = (
-        not duplicate
-        or requeued_existing
-    )
-    if should_schedule:
-        _schedule_processing(
-            background_tasks,
-            version.id,
-            upload_path,
-            request.state.request_id,
         )
 
     logger.info(
