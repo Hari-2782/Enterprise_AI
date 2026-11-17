@@ -5,7 +5,10 @@ WORKDIR /app
 
 COPY requirements-tokenizer-linux.txt /tmp/requirements.txt
 
-RUN python -m pip install --no-cache-dir -r /tmp/requirements.txt
+RUN python -m pip install --no-cache-dir -r /tmp/requirements.txt \
+    && python -m pip install --no-cache-dir \
+        --index-url https://download.pytorch.org/whl/cpu \
+        "torch>=2.2,<3"
 
 ENV HF_HOME=/root/.cache/huggingface
 ENV PYTHONUNBUFFERED=1
