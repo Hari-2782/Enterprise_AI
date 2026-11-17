@@ -71,6 +71,31 @@ class DocumentChunk(Base):
         nullable=True,
     )
 
+    token_count: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    source_token_start: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    source_token_end: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    source_token_count: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    sources_json: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     page_number: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,

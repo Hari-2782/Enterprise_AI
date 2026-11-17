@@ -12,6 +12,7 @@ from app.core.request_context import (
     reset_request_id,
 )
 from app.services.search.client import check_search_connection
+from app.api.v1.routes.documets import router as documents_router
 
 configure_logging()
 
@@ -21,6 +22,7 @@ app = FastAPI(
     title="Enterprise AI Intelligence Platform",
     version="0.1.0",
 )
+app.include_router(documents_router)
 
 
 @app.middleware("http")
