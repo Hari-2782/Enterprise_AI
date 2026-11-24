@@ -13,6 +13,7 @@ from app.core.request_context import (
 )
 from app.services.search.client import check_search_connection
 from app.api.v1.routes.documets import router as documents_router
+from app.api.v1.routes.search import router as search_router
 
 configure_logging()
 
@@ -23,6 +24,7 @@ app = FastAPI(
     version="0.1.0",
 )
 app.include_router(documents_router)
+app.include_router(search_router)
 
 
 @app.middleware("http")
