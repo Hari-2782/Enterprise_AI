@@ -1,6 +1,8 @@
 
+from contextlib import asynccontextmanager
 import logging
 import re
+import threading
 import time
 import uuid
 
@@ -8,6 +10,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
+from app.core.config import settings
 from app.core.loggin import configure_logging
 from app.core.request_context import (
     set_request_id,
@@ -16,6 +19,7 @@ from app.core.request_context import (
 from app.database.connection import SessionLocal
 from app.providers.llm import LLMProvider, get_llm_provider
 from app.services.search.client import check_search_connection
+from app.workers.ingestion_worker import IngestionWorker
 from app.api.v1.routes.auth import router as auth_router
 from app.api.v1.routes.documets import router as documents_router
 from app.api.v1.routes.evaluations import router as evaluations_router
@@ -28,9 +32,31 @@ configure_logging()
 
 logger = logging.getLogger("enterprise-ai")
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    stop_event = threading.Event()
+    worker_thread: threading.Thread | None = None
+    if settings.app_env != "test":
+        worker = IngestionWorker(poll_seconds=2.0)
+        worker_thread = threading.Thread(
+            target=worker.run_forever,
+            args=(stop_event,),
+            name="embedded-ingestion-worker",
+            daemon=True,
+        )
+        worker_thread.start()
+    try:
+        yield
+    finally:
+        stop_event.set()
+        if worker_thread is not None:
+            worker_thread.join(timeout=3)
+
+
 app = FastAPI(
     title="Enterprise AI Intelligence Platform",
     version="0.1.0",
+    lifespan=lifespan,
 )
 app.add_middleware(
     CORSMiddleware,

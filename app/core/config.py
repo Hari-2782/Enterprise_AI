@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     openrouter_fallback_model: str | None = "nvidia/nemotron-3-ultra-550b-a55b:free"
     openrouter_timeout: float = 30.0
     openrouter_max_retries: int = 2
-    openrouter_max_tokens: int = 1024
+    openrouter_max_tokens: int = 2048
 
     auth_secret_key: SecretStr = SecretStr("dev-only-insecure-secret-change-in-prod")
     auth_token_ttl_minutes: int = 60

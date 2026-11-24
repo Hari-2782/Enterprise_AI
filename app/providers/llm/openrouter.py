@@ -189,15 +189,25 @@ class OpenRouterProvider(LLMProvider):
             raise LLMMalformedResponseError("OpenRouter choice is not an object")
 
         message = first.get("message")
-        if not isinstance(message, dict) or not isinstance(
-            message.get("content"), str
-        ):
+        if not isinstance(message, dict):
+            raise LLMMalformedResponseError("OpenRouter choice missing message object")
+
+        raw_content = message.get("content")
+        if isinstance(raw_content, list):
+            parts = [
+                str(part.get("text", ""))
+                for part in raw_content
+                if isinstance(part, dict)
+            ]
+            raw_content = "".join(parts)
+
+        if not isinstance(raw_content, str) or not raw_content.strip():
             raise LLMMalformedResponseError(
                 "OpenRouter choice missing string message content"
             )
 
         return LLMResponse(
-            content=message["content"],
+            content=raw_content,
             model=str(data.get("model") or requested_model),
             provider=self.provider_name,
             usage=self._parse_usage(data.get("usage")),
@@ -228,7 +238,7 @@ class OpenRouterProvider(LLMProvider):
             )
         except LLMProviderError as exc:
             can_fallback = (
-                exc.retryable
+                (exc.retryable or isinstance(exc, LLMMalformedResponseError))
                 and self.fallback_model is not None
                 and self.fallback_model != primary_model
                 and request.model is None

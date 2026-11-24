@@ -154,6 +154,30 @@ class GroundedRAGService:
         version_id: UUID | None = None,
     ) -> GroundedAnswer:
         normalized_query = query.strip()
+        query_flags = detect_prompt_injection(normalized_query)
+        if query_flags:
+            logger.warning(
+                "prompt_injection_detected_in_query",
+                extra={
+                    "event": "prompt_injection_detected_in_query",
+                    "rules": query_flags,
+                    "user_id": str(user.user_id) if user else None,
+                },
+            )
+            return GroundedAnswer(
+                query=normalized_query,
+                answer="Request blocked by security policy due to suspected prompt injection.",
+                abstained=True,
+                abstention_reason=f"Prompt injection detected in query ({', '.join(query_flags)}).",
+                citations=[],
+                model="none",
+                provider=self.llm_provider.provider_name,
+                prompt_version=PROMPT_VERSION,
+                used_fallback=False,
+                usage=LLMUsage(),
+                latency_ms=0.0,
+            )
+
         hits = self.retrieval_service.search(
             normalized_query,
             user=user,

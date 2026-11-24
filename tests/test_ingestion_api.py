@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
+from app.core.security import AuthenticatedUser, get_current_user
 from app.database.base import Base
 from app.database.connection import get_db
 from app.database.models import Document, DocumentChunk, DocumentVersion
@@ -40,6 +41,12 @@ def test_upload_is_idempotent_and_status_is_queryable(tmp_path, monkeypatch):
             session.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(
+        user_id=uuid4(),
+        email="editor@example.com",
+        department="People Operations",
+        roles=frozenset({"editor"}),
+    )
     try:
         with TestClient(app) as client:
             first = client.post(

@@ -52,6 +52,29 @@ def test_protected_endpoints_require_authentication_and_rbac():
     assert client.post("/api/v1/search", json={"query": "policy"}).status_code == 401
     assert client.post("/api/v1/chat", json={"query": "policy"}).status_code == 401
     assert client.get("/api/v1/audit-logs").status_code == 401
+    assert (
+        client.post(
+            "/api/v1/documents",
+            data={"title": "Rogue", "department": "HR"},
+            files={"file": ("rogue.txt", b"hello", "text/plain")},
+        ).status_code
+        == 401
+    )
+
+    eng_editor = AuthenticatedUser(
+        user_id=uuid4(),
+        email="eng-editor@example.com",
+        department="Engineering",
+        roles=frozenset({"editor"}),
+    )
+    eng_editor_token = create_access_token(eng_editor)
+    cross_dept_upload = client.post(
+        "/api/v1/documents",
+        data={"title": "Rogue HR", "department": "HR"},
+        files={"file": ("rogue.txt", b"hello", "text/plain")},
+        headers={"Authorization": f"Bearer {eng_editor_token}"},
+    )
+    assert cross_dept_upload.status_code == 403
 
     viewer = AuthenticatedUser(
         user_id=uuid4(),

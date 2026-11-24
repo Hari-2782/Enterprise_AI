@@ -275,7 +275,7 @@ class IngestionWorker:
             error_message=error_message,
         )
 
-    def run_forever(self) -> None:
+    def run_forever(self, stop_event: threading.Event | None = None) -> None:
         logger.info(
             "ingestion_worker_started",
             extra={
@@ -283,17 +283,23 @@ class IngestionWorker:
                 "worker_id": self.worker_id,
             },
         )
-        while True:
+        while stop_event is None or not stop_event.is_set():
             try:
                 worked = self.run_once()
                 if not worked:
-                    time.sleep(self.poll_seconds)
+                    if stop_event is not None:
+                        stop_event.wait(self.poll_seconds)
+                    else:
+                        time.sleep(self.poll_seconds)
             except KeyboardInterrupt:
                 logger.info("ingestion_worker_stopped")
                 return
             except Exception:
                 logger.exception("ingestion_worker_poll_failed")
-                time.sleep(self.poll_seconds)
+                if stop_event is not None:
+                    stop_event.wait(self.poll_seconds)
+                else:
+                    time.sleep(self.poll_seconds)
 
 
 def main() -> None:

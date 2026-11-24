@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from math import isfinite
 from typing import Any
 from uuid import UUID
@@ -47,6 +48,11 @@ class RetrievalHit:
     score: float
 
 
+@lru_cache(maxsize=1)
+def _get_default_embedding_service() -> E5EmbeddingService:
+    return E5EmbeddingService()
+
+
 class HybridRetrievalService:
     """Retrieve only currently published chunks with Azure hybrid search.
 
@@ -62,8 +68,14 @@ class HybridRetrievalService:
         session_factory=SessionLocal,
     ):
         self.search_client = search_client
-        self.embedding_service = embedding_service or E5EmbeddingService()
+        self._embedding_service = embedding_service
         self.session_factory = session_factory
+
+    @property
+    def embedding_service(self) -> E5EmbeddingService:
+        if self._embedding_service is None:
+            self._embedding_service = _get_default_embedding_service()
+        return self._embedding_service
 
     def _get_search_client(self):
         if self.search_client is None:
