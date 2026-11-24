@@ -2,6 +2,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.core.security import AuthenticatedUser, get_current_user
 from app.schemas.retrieval import (
     RetrievalHitResponse,
     SearchRequest,
@@ -22,11 +23,13 @@ def get_retrieval_service() -> HybridRetrievalService:
 def hybrid_search(
     payload: SearchRequest,
     request: Request,
+    user: AuthenticatedUser = Depends(get_current_user),
     service: HybridRetrievalService = Depends(get_retrieval_service),
 ):
     try:
         hits = service.search(
             payload.query,
+            user=user,
             top_k=payload.top_k,
             candidate_count=payload.candidate_count,
             department=payload.department,

@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 from uuid import UUID
 
+from app.core.security import AuthenticatedUser
 from app.providers.llm import (
     ChatMessage,
     LLMProvider,
@@ -15,6 +16,7 @@ from app.services.generation.prompt_guard import (
     detect_prompt_injection,
     sanitize_untrusted_text,
 )
+from app.services.governance.pii import mask_pii
 from app.services.search.retrieval_service import (
     HybridRetrievalService,
     RetrievalHit,
@@ -98,7 +100,17 @@ class GroundedRAGService:
                 if hit.page_numbers
                 else "n/a"
             )
-            safe_content = sanitize_untrusted_text(hit.content)
+            masked_content, pii_types = mask_pii(hit.content)
+            if pii_types:
+                logger.info(
+                    "pii_masked_in_context",
+                    extra={
+                        "event": "pii_masked_in_context",
+                        "chunk_id": hit.chunk_id,
+                        "pii_types": pii_types,
+                    },
+                )
+            safe_content = sanitize_untrusted_text(masked_content)
             blocks.append(
                 f'<untrusted_evidence id="{key}" title="{hit.title}" '
                 f'section="{hit.section_path or "n/a"}" pages="{pages}">\n'
@@ -134,6 +146,7 @@ class GroundedRAGService:
         self,
         query: str,
         *,
+        user: AuthenticatedUser | None = None,
         top_k: int = 5,
         candidate_count: int = 30,
         department: str | None = None,
@@ -143,6 +156,7 @@ class GroundedRAGService:
         normalized_query = query.strip()
         hits = self.retrieval_service.search(
             normalized_query,
+            user=user,
             top_k=top_k,
             candidate_count=candidate_count,
             department=department,

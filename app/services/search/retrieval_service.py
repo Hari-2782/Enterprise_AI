@@ -160,6 +160,7 @@ class HybridRetrievalService:
             raise ValueError("department must not be blank")
 
         active_versions = self._active_version_ids(
+            user=user,
             department=normalized_department,
             document_id=document_id,
             version_id=version_id,

@@ -13,7 +13,10 @@ from app.core.request_context import (
 )
 from app.providers.llm import LLMProvider, get_llm_provider
 from app.services.search.client import check_search_connection
+from app.api.v1.routes.auth import router as auth_router
 from app.api.v1.routes.documets import router as documents_router
+from app.api.v1.routes.evaluations import router as evaluations_router
+from app.api.v1.routes.governance import router as governance_router
 from app.api.v1.routes.search import router as search_router
 from app.api.v1.routes.chat import router as chat_router
 
@@ -25,7 +28,10 @@ app = FastAPI(
     title="Enterprise AI Intelligence Platform",
     version="0.1.0",
 )
+app.include_router(auth_router)
 app.include_router(documents_router)
+app.include_router(evaluations_router)
+app.include_router(governance_router)
 app.include_router(search_router)
 app.include_router(chat_router)
 

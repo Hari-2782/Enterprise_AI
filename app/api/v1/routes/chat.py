@@ -2,6 +2,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.core.security import AuthenticatedUser, get_current_user
 from app.providers.llm import LLMProviderError, get_llm_provider
 from app.schemas.chat import (
     ChatRequest,
@@ -28,11 +29,13 @@ def get_rag_service() -> GroundedRAGService:
 def grounded_chat(
     payload: ChatRequest,
     request: Request,
+    user: AuthenticatedUser = Depends(get_current_user),
     service: GroundedRAGService = Depends(get_rag_service),
 ):
     try:
         result = service.answer(
             payload.query,
+            user=user,
             top_k=payload.top_k,
             candidate_count=payload.candidate_count,
             department=payload.department,

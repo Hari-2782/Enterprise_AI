@@ -3,6 +3,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from app.api.v1.routes.search import get_retrieval_service
+from app.core.security import AuthenticatedUser, get_current_user
 from app.main import app
 from app.services.search.retrieval_service import RetrievalHit
 
@@ -32,7 +33,14 @@ class FakeRetrievalService:
 
 def test_hybrid_search_endpoint_returns_results_and_request_id():
     service = FakeRetrievalService()
+    test_user = AuthenticatedUser(
+        user_id=uuid4(),
+        email="eng@example.com",
+        department="People Operations",
+        roles=frozenset({"viewer"}),
+    )
     app.dependency_overrides[get_retrieval_service] = lambda: service
+    app.dependency_overrides[get_current_user] = lambda: test_user
     try:
         with TestClient(app) as client:
             response = client.post(
@@ -55,6 +63,7 @@ def test_hybrid_search_endpoint_returns_results_and_request_id():
         assert body["results"][0]["page_numbers"] == [2]
         assert service.kwargs == {
             "query": " receipts ",
+            "user": test_user,
             "top_k": 3,
             "candidate_count": 30,
             "department": "People Operations",
@@ -63,10 +72,18 @@ def test_hybrid_search_endpoint_returns_results_and_request_id():
         }
     finally:
         app.dependency_overrides.pop(get_retrieval_service, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_hybrid_search_endpoint_rejects_invalid_candidate_window():
+    test_user = AuthenticatedUser(
+        user_id=uuid4(),
+        email="eng@example.com",
+        department="People Operations",
+        roles=frozenset({"viewer"}),
+    )
     app.dependency_overrides[get_retrieval_service] = FakeRetrievalService
+    app.dependency_overrides[get_current_user] = lambda: test_user
     try:
         with TestClient(app) as client:
             response = client.post(
@@ -76,3 +93,4 @@ def test_hybrid_search_endpoint_rejects_invalid_candidate_window():
         assert response.status_code == 422
     finally:
         app.dependency_overrides.pop(get_retrieval_service, None)
+        app.dependency_overrides.pop(get_current_user, None)

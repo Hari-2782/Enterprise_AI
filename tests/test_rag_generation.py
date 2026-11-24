@@ -3,6 +3,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from app.api.v1.routes.chat import get_rag_service
+from app.core.security import AuthenticatedUser, get_current_user
 from app.main import app
 from app.providers.llm import LLMUnavailableError, MockLLMProvider
 from app.services.generation.prompt_guard import detect_prompt_injection
@@ -169,8 +170,15 @@ def test_chat_endpoint_returns_citations_and_handles_provider_failure():
         retrieval_service=_FakeRetrievalService([hit]),  # type: ignore[arg-type]
         llm_provider=llm,
     )
+    test_user = AuthenticatedUser(
+        user_id=uuid4(),
+        email="hr@example.com",
+        department="HR",
+        roles=frozenset({"viewer"}),
+    )
 
     app.dependency_overrides[get_rag_service] = lambda: service
+    app.dependency_overrides[get_current_user] = lambda: test_user
     try:
         client = TestClient(app)
         res = client.post(
@@ -197,6 +205,7 @@ def test_chat_endpoint_returns_citations_and_handles_provider_failure():
         llm_provider=_FailingLLM(),
     )
     app.dependency_overrides[get_rag_service] = lambda: failing_service
+    app.dependency_overrides[get_current_user] = lambda: test_user
     try:
         client = TestClient(app)
         res = client.post("/api/v1/chat", json={"query": "Retention period?"})
