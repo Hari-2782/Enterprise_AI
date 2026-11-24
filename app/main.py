@@ -4,16 +4,18 @@ import re
 import time
 import uuid
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 
 from app.core.loggin import configure_logging
 from app.core.request_context import (
     set_request_id,
     reset_request_id,
 )
+from app.providers.llm import LLMProvider, get_llm_provider
 from app.services.search.client import check_search_connection
 from app.api.v1.routes.documets import router as documents_router
 from app.api.v1.routes.search import router as search_router
+from app.api.v1.routes.chat import router as chat_router
 
 configure_logging()
 
@@ -25,6 +27,7 @@ app = FastAPI(
 )
 app.include_router(documents_router)
 app.include_router(search_router)
+app.include_router(chat_router)
 
 
 @app.middleware("http")
@@ -113,5 +116,24 @@ def azure_search_health():
             "status": "unhealthy",
             "azure_search": {
                 "connected": False,
+            },
+        }
+
+
+@app.get("/api/v1/health/llm")
+def llm_health(provider: LLMProvider = Depends(get_llm_provider)):
+    try:
+        result = provider.check_health()
+        healthy = bool(result.get("reachable"))
+        return {
+            "status": "healthy" if healthy else "unhealthy",
+            "llm": result,
+        }
+    except Exception:
+        logger.exception("LLM health check failed")
+        return {
+            "status": "unhealthy",
+            "llm": {
+                "reachable": False,
             },
         }
