@@ -3,6 +3,7 @@ from app.database.models.document_version import DocumentVersion
 from app.database.models.document_chunk import DocumentChunk
 from app.database.models.evaluation import EvaluationRun, Experiment
 from app.database.models.ingestion_job import IngestionJob
+from app.database.models.review import Feedback, ReviewTask
 from app.database.models.security import (
     AuditLog,
     DocumentPermission,
@@ -19,7 +20,9 @@ __all__ = [
     "DocumentVersion",
     "EvaluationRun",
     "Experiment",
+    "Feedback",
     "IngestionJob",
+    "ReviewTask",
     "Role",
     "User",
     "UserRole",

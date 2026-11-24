@@ -5,18 +5,22 @@ import time
 import uuid
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.core.loggin import configure_logging
 from app.core.request_context import (
     set_request_id,
     reset_request_id,
 )
+from app.database.connection import SessionLocal
 from app.providers.llm import LLMProvider, get_llm_provider
 from app.services.search.client import check_search_connection
 from app.api.v1.routes.auth import router as auth_router
 from app.api.v1.routes.documets import router as documents_router
 from app.api.v1.routes.evaluations import router as evaluations_router
 from app.api.v1.routes.governance import router as governance_router
+from app.api.v1.routes.reviews import router as reviews_router
 from app.api.v1.routes.search import router as search_router
 from app.api.v1.routes.chat import router as chat_router
 
@@ -28,10 +32,18 @@ app = FastAPI(
     title="Enterprise AI Intelligence Platform",
     version="0.1.0",
 )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(auth_router)
 app.include_router(documents_router)
 app.include_router(evaluations_router)
 app.include_router(governance_router)
+app.include_router(reviews_router)
 app.include_router(search_router)
 app.include_router(chat_router)
 
@@ -106,6 +118,19 @@ def health_check(request: Request):
         "service": "enterprise-ai",
         "request_id": request.state.request_id,
     }
+
+
+@app.get("/api/v1/health/database")
+def database_health():
+    db = SessionLocal()
+    try:
+        db.execute(text("SELECT 1"))
+        return {"status": "healthy", "database": {"connected": True}}
+    except Exception:
+        logger.exception("Database health check failed")
+        return {"status": "unhealthy", "database": {"connected": False}}
+    finally:
+        db.close()
 
 
 @app.get("/api/v1/health/azure-search")
