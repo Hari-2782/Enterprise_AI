@@ -32,6 +32,20 @@ _INJECTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
             re.IGNORECASE,
         ),
     ),
+    (
+        "phishing_or_output_tampering",
+        re.compile(
+            r"\b(append|inject|add)\s+(a\s+)?(note|link|url|message)\b.*\b(visit|click|claim)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "data_exfiltration",
+        re.compile(
+            r"\b(forward|exfiltrate|send|email)\s+.*?\b(emails?|messages?|secrets?|records?)\s+to\b",
+            re.IGNORECASE,
+        ),
+    ),
 )
 
 

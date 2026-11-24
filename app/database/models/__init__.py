@@ -1,3 +1,4 @@
+from app.database.models.chat import ChatMessageRecord, ChatSession
 from app.database.models.document import Document
 from app.database.models.document_version import DocumentVersion
 from app.database.models.document_chunk import DocumentChunk
@@ -14,6 +15,8 @@ from app.database.models.security import (
 
 __all__ = [
     "AuditLog",
+    "ChatMessageRecord",
+    "ChatSession",
     "Document",
     "DocumentChunk",
     "DocumentPermission",

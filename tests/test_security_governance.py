@@ -105,9 +105,10 @@ def test_protected_endpoints_require_authentication_and_rbac():
 
 
 def test_pii_masking_redacts_sensitive_fields_before_llm_call():
-    raw = "Contact jane.doe@example.com or 555-123-4567, SSN 123-45-6789."
+    raw = "Contact jane.doe@example.com or +94 755318753 or 555-123-4567, SSN 123-45-6789."
     masked, kinds = mask_pii(raw)
     assert "jane.doe@example.com" not in masked
+    assert "+94 755318753" not in masked
     assert "555-123-4567" not in masked
     assert "123-45-6789" not in masked
     assert set(kinds) == {"email", "phone", "ssn"}

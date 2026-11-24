@@ -16,7 +16,13 @@ _PII_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
     ),
     (
         "phone",
-        re.compile(r"(?<!\w)(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b"),
+        re.compile(
+            r"(?<!\w)(?:"
+            r"\+\d{1,3}[-.\s]?(?:\(?\d{1,4}\)?[-.\s]?){2,4}\d{2,4}"
+            r"|"
+            r"\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}"
+            r")\b"
+        ),
         "[REDACTED_PHONE]",
     ),
     (

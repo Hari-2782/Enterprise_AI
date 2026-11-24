@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -5,6 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 class ChatRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2048)
+    session_id: UUID | None = None
     top_k: int = Field(default=5, ge=1, le=20)
     candidate_count: int = Field(default=30, ge=1, le=100)
     department: str | None = Field(default=None, min_length=1, max_length=100)
@@ -48,3 +50,26 @@ class ChatResponse(BaseModel):
     usage: TokenUsageResponse = Field(default_factory=TokenUsageResponse)
     latency_ms: float = 0.0
     request_id: str
+    session_id: UUID | None = None
+
+
+class ChatSessionSummary(BaseModel):
+    id: UUID
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ChatHistoryMessage(BaseModel):
+    id: UUID
+    query: str
+    answer: str
+    abstained: bool
+    abstention_reason: str | None = None
+    citations: list[CitationResponse] = Field(default_factory=list)
+    model: str
+    provider: str
+    prompt_version: str
+    total_tokens: int = 0
+    latency_ms: float = 0.0
+    created_at: datetime
