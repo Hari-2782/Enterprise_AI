@@ -6,10 +6,10 @@ from typing import Any
 from uuid import UUID
 
 from azure.search.documents.models import VectorizedQuery
-from sqlalchemy import select
 
+from app.core.security import AuthenticatedUser
 from app.database.connection import SessionLocal
-from app.database.models import Document, DocumentVersion
+from app.services.governance.authorization import build_authorized_versions_statement
 from app.services.ingestion.embedding_service import E5EmbeddingService
 from app.services.search.index_schema import VECTOR_FIELD_NAME
 
@@ -79,25 +79,17 @@ class HybridRetrievalService:
     def _active_version_ids(
         self,
         *,
+        user: AuthenticatedUser | None = None,
         department: str | None,
         document_id: UUID | None,
         version_id: UUID | None,
     ) -> list[str]:
-        statement = (
-            select(DocumentVersion.id)
-            .join(Document, Document.id == DocumentVersion.document_id)
-            .where(
-                Document.current_version_id == DocumentVersion.id,
-                DocumentVersion.status == "published",
-            )
-            .order_by(DocumentVersion.id)
+        statement = build_authorized_versions_statement(
+            user=user,
+            department=department,
+            document_id=document_id,
+            version_id=version_id,
         )
-        if department is not None:
-            statement = statement.where(Document.department == department)
-        if document_id is not None:
-            statement = statement.where(Document.id == document_id)
-        if version_id is not None:
-            statement = statement.where(DocumentVersion.id == version_id)
 
         db = self.session_factory()
         try:
@@ -140,6 +132,7 @@ class HybridRetrievalService:
         self,
         query: str,
         *,
+        user: AuthenticatedUser | None = None,
         top_k: int = 5,
         candidate_count: int = DEFAULT_CANDIDATE_COUNT,
         department: str | None = None,
