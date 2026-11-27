@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     auth_secret_key: SecretStr = SecretStr("dev-only-insecure-secret-change-in-prod")
     auth_token_ttl_minutes: int = 60
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     model_config = SettingsConfigDict(
         env_file=".env",

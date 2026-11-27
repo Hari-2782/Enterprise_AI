@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: enterprise-ai-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-enterprise_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_only_change}
+      POSTGRES_DB: ${POSTGRES_DB:-enterprise_ai_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U enterprise_app -d enterprise_ai_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrations:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.migrations
+    env_file:
+      - ../backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-enterprise_app}:${POSTGRES_PASSWORD:-local_dev_only_change}@postgres:5432/${POSTGRES_DB:-enterprise_ai_db}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.backend
+    env_file:
+      - ../backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-enterprise_app}:${POSTGRES_PASSWORD:-local_dev_only_change}@postgres:5432/${POSTGRES_DB:-enterprise_ai_db}
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

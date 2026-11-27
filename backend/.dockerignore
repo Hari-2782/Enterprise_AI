@@ -1,0 +1,10 @@
+.venv
+.venv-new
+.hf-cache
+.git
+.pytest_cache
+__pycache__
+*.pyc
+.env
+data
+tests

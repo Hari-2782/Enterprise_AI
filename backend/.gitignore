@@ -1,0 +1,10 @@
+.env
+/.venv
+/.venv-new
+.hf-cache/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.alembic
+/data/uploads/
+

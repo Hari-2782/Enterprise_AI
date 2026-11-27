@@ -1,0 +1,86 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: enterprise_app
+          POSTGRES_PASSWORD: ci_test_password
+          POSTGRES_DB: enterprise_ai_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://enterprise_app:ci_test_password@localhost:5432/enterprise_ai_db
+      MODEL_PROVIDER: mock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv sync --locked
+      - run: uv run alembic upgrade head
+      - run: uv run python -m pytest -q
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install
+      - run: npm run build
+
+  deploy-azure:
+    needs: [backend-tests, frontend-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.AZURE_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build and push images to ACR
+        run: |
+          az acr login --name enterpriseaiacr3a85
+          docker build -t enterpriseaiacr3a85.azurecr.io/enterprise-ai-backend:${{ github.sha }} -t enterpriseaiacr3a85.azurecr.io/enterprise-ai-backend:latest -f backend/Dockerfile.backend backend
+          docker push enterpriseaiacr3a85.azurecr.io/enterprise-ai-backend:${{ github.sha }}
+          docker push enterpriseaiacr3a85.azurecr.io/enterprise-ai-backend:latest
+          docker build -t enterpriseaiacr3a85.azurecr.io/enterprise-ai-frontend:${{ github.sha }} -t enterpriseaiacr3a85.azurecr.io/enterprise-ai-frontend:latest -f frontend/Dockerfile frontend
+          docker push enterpriseaiacr3a85.azurecr.io/enterprise-ai-frontend:${{ github.sha }}
+          docker push enterpriseaiacr3a85.azurecr.io/enterprise-ai-frontend:latest
+
+      - name: Run Alembic migrations on production DB
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          pip install uv
+          uv sync --frozen --no-dev
+          uv run alembic upgrade head
+
+      - name: Update Azure Container Apps
+        run: |
+          az containerapp update -n enterprise-ai-backend -g rg-enterprise-ai-dev --image enterpriseaiacr3a85.azurecr.io/enterprise-ai-backend:${{ github.sha }}
+          az containerapp update -n enterprise-ai-frontend -g rg-enterprise-ai-dev --image enterpriseaiacr3a85.azurecr.io/enterprise-ai-frontend:${{ github.sha }}
