@@ -16,11 +16,13 @@ import {
   Search,
   Send,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   ThumbsDown,
   ThumbsUp,
   Trash2,
   User as UserIcon,
+  X,
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { MarkdownAnswer } from "@/components/MarkdownAnswer";
@@ -334,68 +336,70 @@ export default function HomePage() {
 
   if (!profile) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#090d16] p-6">
-        <div className="w-full max-w-md space-y-6 rounded-2xl border border-gray-800 bg-gray-900/80 p-8 shadow-2xl">
-          <div className="space-y-2 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/20 text-indigo-400">
+      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#070b14] p-6">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.18),_transparent_55%),radial-gradient(ellipse_at_bottom_right,_rgba(16,185,129,0.08),_transparent_50%)]" />
+        <div className="relative w-full max-w-md space-y-6 rounded-2xl border border-white/10 bg-gray-900/75 p-8 shadow-2xl shadow-indigo-950/40 backdrop-blur-xl">
+          <div className="space-y-3 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-500/30">
               <Sparkles className="h-6 w-6" />
             </div>
-            <h1 className="text-xl font-bold text-white">
+            <h1 className="text-2xl font-bold tracking-tight text-white">
               Enterprise AI Intelligence
             </h1>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm leading-relaxed text-gray-400">
               Sign in with your corporate credentials to access grounded knowledge search &amp; AI chat.
             </p>
           </div>
 
           {error && (
-            <div className="rounded-lg border border-red-800 bg-red-950/50 p-3 text-xs text-red-300">
+            <div className="rounded-xl border border-red-500/30 bg-red-950/50 p-3 text-xs text-red-300">
               {error}
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-xs font-medium text-gray-300">Email</label>
               <input
                 type="email"
                 placeholder="admin@enterprise.local"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-xl border border-white/10 bg-gray-950/80 px-3.5 py-2.5 text-sm text-white placeholder-gray-500 transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 required
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-xs font-medium text-gray-300">Password</label>
               <input
                 type="password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-xl border border-white/10 bg-gray-950/80 px-3.5 py-2.5 text-sm text-white placeholder-gray-500 transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 required
               />
             </div>
             <button
               type="submit"
-              className="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
+              className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition hover:from-indigo-500 hover:to-violet-500"
             >
               Sign In
             </button>
           </form>
 
           <div className="relative flex items-center py-1">
-            <div className="flex-grow border-t border-gray-800" />
+            <div className="flex-grow border-t border-white/10" />
             <span className="mx-3 text-xs text-gray-500">or</span>
-            <div className="flex-grow border-t border-gray-800" />
+            <div className="flex-grow border-t border-white/10" />
           </div>
 
           <button
             type="button"
             onClick={handleGuestLogin}
-            className="w-full rounded-lg border border-gray-700 bg-gray-950 py-2.5 text-sm font-medium text-gray-200 transition hover:border-indigo-500 hover:text-white"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-gray-200 transition hover:border-indigo-400/50 hover:bg-indigo-500/10 hover:text-white"
           >
+            <ShieldCheck className="h-4 w-4 text-emerald-400" />
             Continue as Guest (Public Demo)
           </button>
         </div>
@@ -403,17 +407,28 @@ export default function HomePage() {
     );
   }
 
+  const isAdmin = profile.roles.includes("admin");
+  const isGuest = profile.email === "guest@enterprise.local" || profile.department === "Public";
+  const authorizedDepartments = Array.from(
+    new Set([profile.department, ...documents.map((d) => d.department)].filter(Boolean))
+  ) as string[];
+  const defaultScopeLabel = isAdmin
+    ? "All departments (Admin)"
+    : authorizedDepartments.length <= 1
+    ? `${profile.department} (Authorized only)`
+    : `All authorized (${authorizedDepartments.join(", ")})`;
+
   return (
-    <div className="flex min-h-screen bg-[#090d16] text-gray-100">
+    <div className="flex min-h-screen bg-[#070b14] bg-[radial-gradient(ellipse_at_top_right,_rgba(99,102,241,0.10),_transparent_50%)] text-gray-100">
       {/* Sidebar */}
-      <aside className="flex w-64 flex-col justify-between border-r border-gray-800/80 bg-gray-950/70 p-4">
+      <aside className="flex w-64 flex-col justify-between border-r border-white/10 bg-gray-950/80 p-4 backdrop-blur-xl">
         <div className="space-y-6">
-          <div className="flex items-center gap-2.5 px-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white">
+          <div className="flex items-center gap-3 px-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-500/30">
               <Sparkles className="h-4 w-4" />
             </div>
             <div>
-              <div className="text-sm font-bold text-white">Enterprise AI</div>
+              <div className="text-sm font-bold tracking-tight text-white">Enterprise AI</div>
               <div className="text-[11px] text-gray-400">OpenRouter · Azure RAG</div>
             </div>
           </div>
@@ -560,23 +575,39 @@ export default function HomePage() {
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-gray-800/80 px-6 py-3.5">
-          <h2 className="text-base font-semibold text-white">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-gray-950/60 px-6 py-3.5 backdrop-blur-md">
+          <h2 className="text-base font-semibold tracking-tight text-white">
             {tab === "chat" && "Grounded AI Assistant"}
             {tab === "documents" && "Knowledge Base & Ingestion Pipeline"}
             {tab === "search" && "Hybrid Vector + Keyword Search"}
             {tab === "evaluations" && "RAG Evaluation & Ablation Runs"}
             {tab === "governance" && "Human Review Queue & Audit Logs"}
           </h2>
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-2.5 text-xs">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                isAdmin
+                  ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300"
+                  : isGuest
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                  : "border-sky-500/30 bg-sky-500/10 text-sky-300"
+              }`}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              {isAdmin
+                ? "Admin · Full Access"
+                : isGuest
+                ? "Guest · Public Read-Only"
+                : `${profile.department} · Dept Scope`}
+            </span>
             <span className="text-gray-400">Scope:</span>
             <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="w-44 rounded-md border border-gray-800 bg-gray-900 px-2.5 py-1 text-xs text-white focus:border-indigo-500 focus:outline-none"
+              className="min-w-[11rem] rounded-lg border border-white/10 bg-gray-900/90 px-2.5 py-1.5 text-xs text-white transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             >
-              <option value="">All authorized depts</option>
-              {Array.from(new Set(documents.map((d) => d.department))).map((dept) => (
+              <option value="">{defaultScopeLabel}</option>
+              {authorizedDepartments.map((dept) => (
                 <option key={dept} value={dept}>
                   {dept}
                 </option>
@@ -587,13 +618,30 @@ export default function HomePage() {
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {error && (
-            <div className="rounded-lg border border-red-800 bg-red-950/50 p-3 text-sm text-red-300">
-              {error}
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-950/50 px-4 py-3 text-sm text-red-300">
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="rounded p-0.5 text-red-400 hover:bg-red-500/20 hover:text-red-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           )}
           {notice && (
-            <div className="rounded-lg border border-emerald-800 bg-emerald-950/40 p-3 text-sm text-emerald-300">
-              {notice}
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-300">
+              <span className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" />
+                {notice}
+              </span>
+              <button
+                type="button"
+                onClick={() => setNotice(null)}
+                className="rounded p-0.5 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           )}
 
@@ -601,17 +649,29 @@ export default function HomePage() {
             <div className="mx-auto flex h-full max-w-4xl flex-col justify-between space-y-6">
               <div className="space-y-6">
                 {chatHistory.length === 0 && (
-                  <div className="rounded-2xl border border-dashed border-gray-800 bg-gray-900/30 p-8 text-center space-y-4">
-                    <Bot className="mx-auto h-8 w-8 text-indigo-400" />
-                    <div className="space-y-1">
-                      <h3 className="text-sm font-semibold text-white">
+                  <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-gray-900/80 to-gray-950/80 p-10 text-center shadow-2xl shadow-black/40 backdrop-blur-sm space-y-5">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 text-indigo-400 ring-1 ring-indigo-500/30 shadow-lg shadow-indigo-500/10">
+                      <Bot className="h-6 w-6" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold tracking-tight text-white">
                         Ask across your published enterprise documents
                       </h3>
-                      <p className="text-xs text-gray-400">
+                      <p className="mx-auto max-w-xl text-xs leading-relaxed text-gray-400">
                         Responses are grounded strictly in authorized Azure AI Search chunks with verified citations, PII masking, and persistent session history.
                       </p>
                     </div>
-                    <div className="flex flex-wrap justify-center gap-2 pt-1">
+                    <div className="flex flex-wrap justify-center gap-2 text-[11px] text-gray-400">
+                      {["Azure Hybrid Search", "Verified Citations", "PII Masking", "RBAC Enforced"].map((pill) => (
+                        <span
+                          key={pill}
+                          className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5"
+                        >
+                          {pill}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-2.5 pt-2">
                       {[
                         "What Microsoft certifications and degree are in the CV?",
                         "Compare the Medical Chatbot and Azure AI Foundry RAG projects.",
@@ -621,7 +681,7 @@ export default function HomePage() {
                           key={sample}
                           type="button"
                           onClick={() => submitChatQuery(sample)}
-                          className="rounded-full border border-gray-700 bg-gray-900 px-3 py-1.5 text-xs text-gray-300 transition hover:border-indigo-500 hover:text-white"
+                          className="rounded-xl border border-white/10 bg-gray-900/90 px-3.5 py-2 text-xs text-gray-300 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-500/60 hover:bg-indigo-500/10 hover:text-white"
                         >
                           {sample}
                         </button>
@@ -764,19 +824,19 @@ export default function HomePage() {
 
               <form
                 onSubmit={handleChat}
-                className="sticky bottom-0 flex gap-2 rounded-xl border border-gray-800 bg-gray-900 p-2 shadow-lg"
+                className="sticky bottom-0 flex gap-2 rounded-2xl border border-white/10 bg-gray-900/90 p-2 shadow-2xl shadow-black/40 backdrop-blur-md transition focus-within:border-indigo-500/60 focus-within:ring-2 focus-within:ring-indigo-500/20"
               >
                 <input
                   type="text"
                   placeholder="Ask a question about uploaded documents..."
                   value={chatQuery}
                   onChange={(e) => setChatQuery(e.target.value)}
-                  className="flex-1 bg-transparent px-3 py-2 text-sm text-white focus:outline-none"
+                  className="flex-1 bg-transparent px-3.5 py-2 text-sm text-white placeholder-gray-500 focus:outline-none"
                 />
                 <button
                   type="submit"
                   disabled={loading || !chatQuery.trim()}
-                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-md shadow-indigo-600/25 transition hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50"
                 >
                   <Send className="h-4 w-4" />
                   {loading ? "Thinking..." : "Send"}
