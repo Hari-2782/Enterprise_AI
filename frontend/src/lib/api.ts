@@ -47,6 +47,11 @@ export const apiClient = {
       body: JSON.stringify({ email, password }),
     }),
 
+  guestLogin: () =>
+    apiFetch<TokenResponse>("/api/v1/auth/guest", {
+      method: "POST",
+    }),
+
   me: (token: string) =>
     apiFetch<UserProfile>("/api/v1/auth/me", { token }),
 

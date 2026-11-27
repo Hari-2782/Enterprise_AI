@@ -1,4 +1,4 @@
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -80,6 +80,32 @@ def login(
         outcome="allowed",
     )
     return TokenResponse(access_token=create_access_token(auth_user))
+
+
+@router.post("/guest", response_model=TokenResponse)
+def guest_login(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Issue a restricted read-only guest token scoped to the Public department."""
+    guest_user = AuthenticatedUser(
+        user_id=uuid4(),
+        email="guest@enterprise.local",
+        department="Public",
+        roles=frozenset({"viewer"}),
+    )
+    record_audit_event(
+        db,
+        request_id=request.state.request_id,
+        user_id=None,
+        action="auth.guest_login",
+        resource_type="user",
+        resource_id=str(guest_user.user_id),
+        outcome="allowed",
+    )
+    return TokenResponse(
+        access_token=create_access_token(guest_user, ttl_minutes=30)
+    )
 
 
 @router.get("/me", response_model=UserProfileResponse)

@@ -104,6 +104,31 @@ def test_protected_endpoints_require_authentication_and_rbac():
     assert isinstance(res_allowed.json(), list)
 
 
+def test_guest_login_grants_restricted_public_viewer_scope():
+    client = TestClient(app)
+    res = client.post("/api/v1/auth/guest")
+    assert res.status_code == 200
+    token = res.json()["access_token"]
+    hdr = {"Authorization": f"Bearer {token}"}
+
+    me = client.get("/api/v1/auth/me", headers=hdr)
+    assert me.status_code == 200
+    assert me.json()["department"] == "Public"
+    assert me.json()["roles"] == ["viewer"]
+
+    # Guest cannot view audit logs or upload documents
+    assert client.get("/api/v1/audit-logs", headers=hdr).status_code == 403
+    assert (
+        client.post(
+            "/api/v1/documents",
+            headers=hdr,
+            data={"title": "Test", "department": "Public"},
+            files={"file": ("t.txt", b"hello", "text/plain")},
+        ).status_code
+        == 403
+    )
+
+
 def test_pii_masking_redacts_sensitive_fields_before_llm_call():
     raw = "Contact jane.doe@example.com or +94 755318753 or 555-123-4567, SSN 123-45-6789."
     masked, kinds = mask_pii(raw)

@@ -156,6 +156,19 @@ export default function HomePage() {
     }
   }
 
+  async function handleGuestLogin() {
+    setError(null);
+    try {
+      const res = await apiClient.guestLogin();
+      const me = await apiClient.me(res.access_token);
+      setToken(res.access_token);
+      setProfile(me);
+      setNotice("Signed in as Guest (Public read-only scope)");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Guest login failed");
+    }
+  }
+
   async function submitChatQuery(rawQuery: string) {
     if (!token || !rawQuery.trim()) return;
     const submittedQuery = rawQuery.trim();
@@ -371,6 +384,20 @@ export default function HomePage() {
               Sign In
             </button>
           </form>
+
+          <div className="relative flex items-center py-1">
+            <div className="flex-grow border-t border-gray-800" />
+            <span className="mx-3 text-xs text-gray-500">or</span>
+            <div className="flex-grow border-t border-gray-800" />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGuestLogin}
+            className="w-full rounded-lg border border-gray-700 bg-gray-950 py-2.5 text-sm font-medium text-gray-200 transition hover:border-indigo-500 hover:text-white"
+          >
+            Continue as Guest (Public Demo)
+          </button>
         </div>
       </main>
     );
