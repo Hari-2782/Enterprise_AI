@@ -1,10 +1,21 @@
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_env: str = "development"
 
     DATABASE_URL: str
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        """Ensure PostgreSQL URLs default to the Psycopg 3 driver."""
+        if isinstance(value, str):
+            if value.startswith("postgres://"):
+                return "postgresql+psycopg://" + value[len("postgres://") :]
+            if value.startswith("postgresql://"):
+                return "postgresql+psycopg://" + value[len("postgresql://") :]
+        return value
     upload_dir: str = "data/uploads"
     max_upload_bytes: int = 25 * 1024 * 1024
 
