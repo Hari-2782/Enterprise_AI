@@ -71,12 +71,13 @@ jobs:
           docker push enterpriseaiacr3a85.azurecr.io/enterprise-ai-frontend:${{ github.sha }}
           docker push enterpriseaiacr3a85.azurecr.io/enterprise-ai-frontend:latest
 
+      - uses: astral-sh/setup-uv@v4
+
       - name: Run Alembic migrations on production DB
         working-directory: backend
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
         run: |
-          pip install uv
           uv sync --frozen --no-dev
           uv run alembic upgrade head
 

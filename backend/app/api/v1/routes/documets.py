@@ -17,14 +17,19 @@ from fastapi import (
     status,
 )
 from pydantic import BaseModel
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import AuthenticatedUser, get_current_user, require_roles
 from app.database.connection import get_db
-from app.database.models import Document, DocumentVersion, IngestionJob
+from app.database.models import (
+    Document,
+    DocumentPermission,
+    DocumentVersion,
+    IngestionJob,
+)
 from app.schemas.ingestion import IngestionAccepted, IngestionStatus
 from app.services.ingestion.file_validation import (
     SUPPORTED_EXTENSIONS,
@@ -353,7 +358,24 @@ def list_documents(
 ):
     stmt = select(Document).order_by(desc(Document.updated_at)).limit(limit)
     if "admin" not in user.roles:
-        stmt = stmt.where(Document.department == user.department)
+        acl_conditions = [
+            (DocumentPermission.principal_type == "user")
+            & (DocumentPermission.principal_id == str(user.user_id)),
+            (DocumentPermission.principal_type == "department")
+            & (DocumentPermission.principal_id == user.department),
+        ]
+        if user.roles:
+            acl_conditions.append(
+                (DocumentPermission.principal_type == "role")
+                & (DocumentPermission.principal_id.in_(sorted(user.roles)))
+            )
+        acl_exists = exists(
+            select(DocumentPermission.id).where(
+                DocumentPermission.document_id == Document.id,
+                or_(*acl_conditions),
+            )
+        )
+        stmt = stmt.where(or_(Document.department == user.department, acl_exists))
 
     docs = db.scalars(stmt).all()
     items: list[DocumentListItem] = []
